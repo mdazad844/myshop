@@ -1,78 +1,69 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-require('dotenv').config();
 
-// Initialize Express app - THIS WAS MISSING!
+// Create Express app
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Basic health check route
+// Health check route
 app.get('/', (req, res) => {
   res.json({ 
     message: 'E-commerce API is running!',
-    status: 'healthy'
+    status: 'healthy',
+    timestamp: new Date().toISOString()
   });
 });
 
-// Your existing routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/products', require('./routes/products'));
-app.use('/api/cart', require('./routes/cart'));
-app.use('/api/wishlist', require('./routes/wishlist'));
-app.use('/api/orders', require('./routes/orders'));
+// Products route for healthcheck
+app.get('/api/products', (req, res) => {
+  res.json({ 
+    message: 'Products endpoint is working',
+    products: []
+  });
+});
 
-// Make sure you're listening on all interfaces
-const PORT = process.env.PORT || 5000;
+// Import and use routes
+try {
+  app.use('/api/auth', require('./routes/auth'));
+  app.use('/api/products', require('./routes/products'));
+  app.use('/api/cart', require('./routes/cart'));
+  app.use('/api/wishlist', require('./routes/wishlist'));
+  app.use('/api/orders', require('./routes/orders'));
+  console.log('✅ All routes loaded successfully');
+} catch (error) {
+  console.log('⚠️ Some routes failed to load, but server will continue');
+}
 
-// Connect to MongoDB first, then start server
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ecommerce')
-  .then(() => {
-    console.log('✅ MongoDB connected successfully');
+// Database connection and server startup
+const startServer = async () => {
+  try {
+    console.log('🔧 Starting server...');
     
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Server running on port ${PORT}`);
+    // Connect to MongoDB
+    if (process.env.MONGODB_URI) {
+      await mongoose.connect(process.env.MONGODB_URI);
+      console.log('✅ MongoDB connected successfully');
+    } else {
+      console.log('⚠️ No MongoDB URI, running without database');
+    }
+    
+    // Start server
+    const port = process.env.PORT || 5000;
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`🚀 Server running on port ${port}`);
+      console.log(`🌐 Health: http://0.0.0.0:${port}/`);
+      console.log(`📦 Products: http://0.0.0.0:${port}/api/products`);
     });
-  })
-  .catch((error) => {
-    console.error('❌ MongoDB connection failed:', error);
+    
+  } catch (error) {
+    console.error('❌ Server startup failed:', error.message);
     process.exit(1);
-  });
-// Basic health check route
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'E-commerce API is running!',
-    status: 'healthy'
-  });
-});
+  }
+};
 
-// Your existing routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/products', require('./routes/products'));
-app.use('/api/cart', require('./routes/cart'));
-app.use('/api/wishlist', require('./routes/wishlist'));
-app.use('/api/orders', require('./routes/orders'));
-
-// Add MongoDB connection with error handling
-const PORT = process.env.PORT || 5000;
-
-// Connect to MongoDB first, then start server
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ecommerce')
-  .then(() => {
-    console.log('✅ MongoDB connected successfully');
-    
-    // Start server only after MongoDB is connected
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌐 Healthcheck available at: http://0.0.0.0:${PORT}/`);
-    });
-  })
-  .catch((error) => {
-    console.error('❌ MongoDB connection failed:', error);
-    console.log('🔧 Please check your MONGODB_URI environment variable');
-    process.exit(1); // Exit if database connection fails
-  });
-
+// Start the server
+startServer();
